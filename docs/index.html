@@ -22,13 +22,13 @@
         </svg>
       </div>
       <h1>O Escritório</h1>
-      <p class="lede">Sala privada do Kauan. A senha não sai deste navegador.</p>
+      <p class="lede">A mesma senha abre no celular e no computador.</p>
       <canvas id="lock-preview" width="240" height="240" aria-hidden="true"></canvas>
       <label for="password">Senha</label>
       <input id="password" name="password" type="password" minlength="8" autocomplete="current-password" autocapitalize="off" autocorrect="off" spellcheck="false" required />
       <p id="lock-error" role="alert"></p>
       <button class="primary" id="enter" type="submit">Entrar</button>
-      <p class="hint">Na primeira vez, a senha que você escolher trava este navegador. Com 8 caracteres ou mais.</p>
+      <p class="hint">Oito caracteres ou mais. Ela deriva a chave que abre tarefas e resultados, em qualquer aparelho.</p>
     </form>
   </main>
 
@@ -68,6 +68,7 @@
       <button type="submit">Falar</button>
     </form>
     <nav id="toolbar" aria-label="Ações">
+      <button class="tool" type="button" id="tool-building"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M4 20 V9 L12 4 L20 9 V20 H14 V14 H10 V20 Z"/></svg><span>Prédio</span></button>
       <button class="tool" type="button" data-open="rooms"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M4 10 L12 4 L20 10 V20 H14 V14 H10 V20 H4 Z"/></svg><span>Salas</span></button>
       <button class="tool" type="button" data-open="catalog"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M5 4 H15 V20 L10 17 L5 20 Z"/></svg><span>Catálogo</span></button>
       <button class="tool" type="button" data-open="bag"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M7 8 V7 a5 5 0 0 1 10 0 V8 H20 V21 H4 V8 Z M9 8 h6 V7 a3 3 0 0 0-6 0 Z"/></svg><span>Mochila</span><em id="bag-count" hidden>0</em></button>
@@ -77,6 +78,8 @@
       <button class="tool" type="button" id="tool-dance"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M10 3 h4 v5 h3 l-5 4 l-5-4 h3 Z M8 14 h8 v2 H8 Z M7 18 h4 v3 H7 Z M13 18 h4 v3 h-4 Z"/></svg><span>Dançar</span></button>
       <button class="tool" type="button" data-open="look"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3" fill="currentColor"/><path fill="currentColor" d="M6 19 c1-4 3-5 6-5 s5 1 6 5 Z"/></svg><span>Visual</span></button>
       <button class="tool" type="button" data-open="talk"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M4 5 H20 V16 H9 L4 20 Z"/></svg><span>Conversa</span></button>
+      <button class="tool" type="button" id="tool-kit"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M4 7 H20 V19 H4 Z M8 7 V5 H16 V7"/></svg><span>Ferramentas</span></button>
+      <button class="tool" type="button" id="tool-settings"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3" fill="currentColor"/><path fill="currentColor" d="M12 2 L13.5 6 H10.5 Z M12 22 L10.5 18 H13.5 Z M2 12 L6 10.5 V13.5 Z M22 12 L18 13.5 V10.5 Z"/></svg><span>Ajustes</span></button>
       <button class="tool" type="button" data-open="help"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path fill="currentColor" d="M11 17 h2 v2 h-2 Z M11 7 h2 c2 0 3 1 3 3 c0 2-2 2-2 4 h-2 c0-3 2-3 2-4 c0-1-1-1-1-1 h-2 Z"/></svg><span>Ajuda</span></button>
       <button class="tool" type="button" id="tool-lock"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M8 10 V8 a4 4 0 0 1 8 0 v2 h1 v10 H7 V10 Z m2 0 h4 V8 a2 2 0 0 0-4 0 Z"/></svg><span>Travar</span></button>
     </nav>

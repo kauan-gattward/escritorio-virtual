@@ -1,4 +1,11 @@
-import { AGENT_MAP, CATALOG, CATALOG_ORDER, DEFAULT_LOOK, ROOM_LIST, ROOMS } from './content.js';
+import { AGENT_MAP, CATALOG, CATALOG_ORDER, DEFAULT_LOOK } from './content.js';
+import { FLOOR_LIST } from './world.js';
+import {
+  renderArchive, renderBoard, renderCalendar, renderCalc, renderElevator, renderFinances,
+  renderGoals, renderKanban, renderLinks, renderMeeting, renderMood, renderMusic, renderNotices,
+  renderNotes, renderPomodoro, renderProjects, renderQuickTask, renderReception, renderSearch,
+  renderSettings, renderTodos, toolMenu,
+} from './features.js';
 import { paintAvatarPreview, paintPreview } from './art.js';
 import { mount } from './game.js';
 import { AVATAR_KEY, readJson, writeJson } from './persist.js';
@@ -112,7 +119,11 @@ function renderRooms(body) {
   body.replaceChildren();
   const list = document.createElement('div');
   list.className = 'room-list';
-  for (const room of ROOM_LIST) {
+  for (const floor of FLOOR_LIST) {
+    const heading = document.createElement('h3');
+    heading.textContent = floor.name;
+    list.appendChild(heading);
+    for (const room of floor.areas) {
     const button = document.createElement('button');
     button.type = 'button';
     if (room.id === game.roomId()) button.setAttribute('aria-current', 'true');
@@ -126,6 +137,7 @@ function renderRooms(body) {
       renderRooms(body);
     });
     list.appendChild(button);
+    }
   }
   const restore = document.createElement('button');
   restore.className = 'ghost';
@@ -291,8 +303,8 @@ function renderTalk(body) {
 function renderHelp(body) {
   body.replaceChildren();
   const lines = [
-    'Toque num piso para andar. Arraste para mover a câmera. No celular, use dois dedos para aproximar.',
-    'Portas na parede trocam de sala. O botão Salas também.',
+    'Toque num piso para andar. A câmera segue você. Arraste para olhar em volta; ao andar de novo, ela volta a seguir.',
+    'As salas de um andar se ligam por corredor. Elevador e escada mudam de andar. Salas teletransporta. Prédio mostra a fachada.',
     'Mover: arraste um móvel. Girar e Pegar ficam na faixa acima do chat.',
     'Clique numa cadeira ou sofá para sentar. Acenar e Dançar são seus.',
     'Clique num colega para pedir uma tarefa. Sem webhook, a tarefa fica neste aparelho como “aguardando conexão”.',
@@ -368,9 +380,9 @@ function renderAgent(body, agentId) {
   send.addEventListener('click', async () => {
     send.disabled = true;
     try {
-      const task = await sendTask(agent.id, area.value);
+      const { task, delivery } = await sendTask(agent.id, area.value, game.roomId());
       area.value = '';
-      toast(task.status === 'enviada' ? 'Tarefa enviada' : 'Aguardando conexão');
+      toast(delivery?.via === 'no-cors' ? 'Enviado sem leitura (CORS)' : task.status === 'enviada' ? 'Tarefa enviada' : 'Aguardando conexão');
     } catch {
       toast('Escreva a tarefa primeiro');
     } finally {
@@ -431,8 +443,11 @@ function renderAgent(body, agentId) {
 }
 
 function updateChrome() {
-  const room = ROOMS[game.roomId()];
-  document.getElementById('room-label').textContent = room.name;
+  document.getElementById('room-label').textContent = game.areaName();
+  const pill = document.getElementById('link-pill');
+  const on = hasWebhook();
+  pill.textContent = on ? 'Conexão pronta' : 'Sem conexão';
+  pill.classList.toggle('live', on);
   const count = game.inventory().length;
   const badge = document.getElementById('bag-count');
   badge.hidden = count === 0;
@@ -458,6 +473,42 @@ function updateChrome() {
   }
 }
 
+const FEATURES = {
+  reception: ['Recepção', renderReception],
+  notices: ['Mural', renderNotices],
+  kanban: ['Quadro do time', renderKanban],
+  meeting: ['Reunião', renderMeeting],
+  board: ['Quadro da reunião', renderBoard],
+  notes: ['Notas', renderNotes],
+  goals: ['Metas', renderGoals],
+  pomodoro: ['Pomodoro', renderPomodoro],
+  links: ['Links', renderLinks],
+  finances: ['Vendas', renderFinances],
+  music: ['Copa', renderMusic],
+  mood: ['Humor', renderMood],
+  projects: ['Projetos', renderProjects],
+  archive: ['Arquivo', renderArchive],
+  todos: ['Lista', renderTodos],
+  calc: ['Calculadora', renderCalc],
+  calendar: ['Calendário', renderCalendar],
+  search: ['Busca', renderSearch],
+  quick: ['Pedido rápido', renderQuickTask],
+  settings: ['Conexão dos agentes', renderSettings],
+};
+
+function openFeature(id) {
+  if (id.startsWith('agent:')) {
+    const agentId = id.slice(6);
+    const agent = AGENT_MAP[agentId];
+    if (!agent) return;
+    openAgentCard({ id: agentId, name: agent.name, kind: 'npc' });
+    return;
+  }
+  const feature = FEATURES[id];
+  if (!feature) return;
+  openWindow(id, feature[0], (body) => feature[1](body, { toast, room: game.roomId() }));
+}
+
 function openAgentCard(avatar) {
   if (avatar.kind === 'player') {
     openWindow('me', 'Kauan', (body) => renderAgent(body, 'kauan'));
@@ -477,7 +528,7 @@ export function startApp({ firstRun, connected }) {
   pill.classList.toggle('live', connected);
   if (firstRun) {
     const banner = document.getElementById('banner');
-    document.getElementById('banner-text').textContent = 'Primeira execução neste navegador. Não há config.enc.json: as tarefas ficam só aqui, como “aguardando conexão”, até a fase 2.';
+    document.getElementById('banner-text').textContent = 'A mesma senha abre o escritório no celular e no computador. Cole o webhook em Configurações. Sem ele, as tarefas ficam aqui como “aguardando conexão”.';
     banner.hidden = false;
   }
   document.getElementById('banner-close').addEventListener('click', () => {
@@ -497,6 +548,36 @@ export function startApp({ firstRun, connected }) {
       if (top) closeWindow(top.dataset.id);
     }
     if (event === 'inventory' && windows.get('bag')) renderBag(windows.get('bag').querySelector('.body'));
+    if (event === 'scene') updateChrome();
+    if (event === 'interact') openFeature(payload.id);
+    if (event === 'portal' && payload.kind === 'elevator') {
+      openWindow('lift', 'Elevador', (body) => renderElevator(body, {
+        floors: FLOOR_LIST,
+        current: game.floorId(),
+        ride: (id) => { game.ride(id); closeWindow('lift'); },
+      }));
+    }
+    if (event === 'portal' && payload.kind === 'stairs') {
+      openWindow('stairs', 'Escada', (body) => {
+        body.replaceChildren();
+        if (payload.up) {
+          const up = document.createElement('button');
+          up.className = 'primary';
+          up.type = 'button';
+          up.textContent = 'Subir';
+          up.addEventListener('click', () => { game.rideStairs(payload.up); closeWindow('stairs'); });
+          body.append(up);
+        }
+        if (payload.down) {
+          const down = document.createElement('button');
+          down.className = 'ghost';
+          down.type = 'button';
+          down.textContent = 'Descer';
+          down.addEventListener('click', () => { game.rideStairs(payload.down); closeWindow('stairs'); });
+          body.append(down);
+        }
+      });
+    }
   });
   game.setLook(look);
   updateChrome();
@@ -516,6 +597,11 @@ export function startApp({ firstRun, connected }) {
   document.getElementById('tool-lock').addEventListener('click', () => {
     location.reload();
   });
+  document.getElementById('tool-building').addEventListener('click', () => game.showExterior());
+  document.getElementById('tool-kit').addEventListener('click', () => {
+    openWindow('kit', 'Ferramentas', (body) => toolMenu(body, openFeature));
+  });
+  document.getElementById('tool-settings').addEventListener('click', () => openFeature('settings'));
   document.getElementById('ctx-rotate').addEventListener('click', () => game.rotate());
   document.getElementById('ctx-pickup').addEventListener('click', () => game.pickup());
   document.getElementById('ctx-cancel').addEventListener('click', () => game.cancelPlace());
