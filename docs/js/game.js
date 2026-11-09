@@ -98,17 +98,24 @@ export function mount(canvas, bubblesEl, emit) {
     if (saved && saved.v === 2 && saved.floors?.terreo && saved.floors?.cobertura) {
       state.floors = saved.floors;
       state.inventory = Array.isArray(saved.inventory) ? saved.inventory : [];
+      if (!saved.noDefaultRugs) {
+        for (const id of Object.keys(state.floors)) {
+          if (Array.isArray(state.floors[id])) state.floors[id] = state.floors[id].filter((it) => !(it && it.type === 'tapete' && /-tapete$/.test(String(it.id || ''))));
+        }
+        state.inventory = state.inventory.filter((it) => !(it && it.type === 'tapete' && /-tapete$/.test(String(it.id || ''))));
+      }
+      writeJson(LAYOUT_V2, { v: 2, floors: state.floors, inventory: state.inventory, noDefaultRugs: true });
     } else {
       state.floors = cloneFloorLayouts();
       state.inventory = [];
-      writeJson(LAYOUT_V2, { v: 2, floors: state.floors, inventory: state.inventory });
+      writeJson(LAYOUT_V2, { v: 2, floors: state.floors, inventory: state.inventory, noDefaultRugs: true });
     }
   }
 
   function saveLayout() {
     window.clearTimeout(saveTimer);
     saveTimer = window.setTimeout(() => {
-      writeJson(LAYOUT_V2, { v: 2, floors: state.floors, inventory: state.inventory });
+      writeJson(LAYOUT_V2, { v: 2, floors: state.floors, inventory: state.inventory, noDefaultRugs: true });
     }, 120);
   }
 
@@ -246,12 +253,16 @@ export function mount(canvas, bubblesEl, emit) {
 
   function itemAt(x, y) {
     let found = null;
+    let rug = null;
     for (const item of roomItems()) {
-      if (CATALOG[item.type]?.rug) continue;
+      if (CATALOG[item.type]?.rug) {
+        if (!rug && tilesOf(item).some((tile) => tile.x === x && tile.y === y)) rug = item;
+        continue;
+      }
       if (!tilesOf(item).some((tile) => tile.x === x && tile.y === y)) continue;
       if (!found || CATALOG[item.type].surface) found = item;
     }
-    return found;
+    return found || rug;
   }
 
   function peopleHere() {

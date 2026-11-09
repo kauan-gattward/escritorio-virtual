@@ -120,7 +120,6 @@ const terreo = makeFloor({
       doors: [{ x: 0, y: 5, to: 'recepcao', toX: 12, toY: 6, label: 'Recepção' }],
       spawn: { x: 20, y: 5 },
       furniture: [
-        piece('copa-tapete', 'tapete', 18, 5, 0),
         piece('copa-sofa', 'sofa', 18, 6, 0, null, 'mood'),
         piece('copa-cafe', 'cafe', 22, 2, 0, null, 'music'),
         piece('copa-planta', 'planta', 17, 2, 0),

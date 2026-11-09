@@ -132,7 +132,6 @@ const recepcao = {
     { x: 0, y: 5, to: 'open', toX: 1, toY: 6, label: 'Open Office' },
   ],
   furniture: [
-    item('rec-tapete', 'tapete', 4, 5, 0),
     item('rec-sofa', 'sofa', 4, 6, 0),
     item('rec-mesa', 'escrivaninha', 4, 2, 0, 'Recepção'),
     item('rec-cadeira', 'cadeira', 4, 3, 0),
@@ -181,7 +180,6 @@ const open = {
     item('desk-unibot', 'escrivaninha', 8, 7, 0, 'Unibot'),
     item('chair-unibot', 'cadeira', 8, 8, 0),
     item('pc-unibot', 'computador', 9, 7, 0),
-    item('open-tapete', 'tapete', 5, 5, 0),
     item('open-planta-a', 'planta', 1, 10, 0),
     item('open-planta-b', 'planta', 12, 10, 0),
     item('open-planta-c', 'planta', 1, 1, 0),
@@ -231,7 +229,6 @@ const kauan = {
     { x: 5, y: 0, to: 'open', toX: 11, toY: 1, label: 'Open Office' },
   ],
   furniture: [
-    item('kau-tapete', 'tapete', 2, 5, 0),
     item('kau-sofa', 'sofa', 2, 6, 0),
     item('kau-mesa', 'escrivaninha', 2, 2, 0, 'Kauan'),
     item('kau-cadeira', 'cadeira', 2, 3, 0),
