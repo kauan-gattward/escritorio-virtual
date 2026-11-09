@@ -1,9 +1,8 @@
-import { decryptObject, encryptObject, openSession, closeSession } from './crypto.js';
-import { VERIFIER_KEY, readJson, writeJson } from './persist.js';
-import { clearMemory, loadTaskStore, setTaskConfig } from './tasks.js';
+import { decryptObject, openSession, closeSession } from './crypto.js';
+import { VERIFIER_KEY, readJson } from './persist.js';
+import { clearMemory, loadResults, loadTaskStore, peekResults, retryPending, setTaskConfig } from './tasks.js';
+import { VAULT_KEY, getVault, loadVault, patchVault } from './vault.js';
 import { animateLock, startApp } from './ui.js';
-
-const VERIFIER_PLAIN = { v: 1, kind: 'verifier', office: 'escritorio' };
 
 animateLock();
 
@@ -13,32 +12,56 @@ const error = document.getElementById('lock-error');
 const button = document.getElementById('enter');
 
 async function unlock(password) {
-  const response = await fetch('./data/config.enc.json', { cache: 'no-store' });
-  let config = null;
+  let canonical = false;
+  try {
+    const proved = await peekResults(password, decryptObject);
+    if (proved) canonical = true;
+  } catch (err) {
+    if (err && err.message === 'auth') throw err;
+  }
+  const vaultRaw = readJson(VAULT_KEY);
+  const verifier = readJson(VERIFIER_KEY);
   let firstRun = false;
-  if (response.ok) {
-    const envelope = await response.json();
-    config = await decryptObject(password, envelope);
-    if (!config || typeof config.webhookUrl !== 'string' || typeof config.senderKey !== 'string') {
-      throw new Error('formato');
+  if (vaultRaw) {
+    try {
+      await decryptObject(password, vaultRaw);
+    } catch (err) {
+      if (!canonical) throw err;
     }
-  } else if (response.status !== 404) {
-    throw new Error('rede');
-  } else {
-    const saved = readJson(VERIFIER_KEY);
-    if (saved) {
-      const check = await decryptObject(password, saved);
+  } else if (!canonical) {
+    if (verifier) {
+      const check = await decryptObject(password, verifier);
       if (!check || check.office !== 'escritorio') throw new Error('auth');
     } else {
       firstRun = true;
-      const envelope = await encryptObject(password, VERIFIER_PLAIN);
-      writeJson(VERIFIER_KEY, envelope);
     }
   }
   openSession(password);
-  setTaskConfig(config);
+  await loadVault();
+  try {
+    const response = await fetch('./data/config.enc.json', { cache: 'no-store' });
+    if (response.ok && !getVault().connection.webhookUrl) {
+      const cfg = await decryptObject(password, await response.json());
+      if (cfg?.webhookUrl && cfg?.senderKey) {
+        await patchVault({
+          connection: {
+            webhookUrl: cfg.webhookUrl,
+            senderKey: cfg.senderKey,
+            senderKeyHeader: cfg.senderKeyHeader || 'Authorization',
+          },
+        });
+      }
+    }
+  } catch {
+    /* config antiga ausente ou de outra senha */
+  }
+  setTaskConfig(getVault().connection);
   await loadTaskStore();
-  return { firstRun, connected: Boolean(config), config };
+  if (getVault().connection.webhookUrl && getVault().connection.senderKey) {
+    await retryPending();
+  }
+  const connected = Boolean(getVault().connection.webhookUrl && getVault().connection.senderKey);
+  return { firstRun, connected };
 }
 
 form.addEventListener('submit', async (event) => {
@@ -56,6 +79,11 @@ form.addEventListener('submit', async (event) => {
     const result = await unlock(password);
     input.value = '';
     startApp(result);
+    loadResults().catch(() => {});
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) loadResults().catch(() => {});
+    });
+    window.addEventListener('focus', () => loadResults().catch(() => {}));
   } catch {
     closeSession();
     clearMemory();

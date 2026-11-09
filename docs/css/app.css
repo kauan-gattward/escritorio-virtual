@@ -440,6 +440,17 @@ textarea, #motto {
   font-weight: 700;
 }
 
+.kanban { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.kanban-col { background: #fffdf8; border: 2px solid var(--line); border-radius: 10px; padding: 6px; }
+.kanban-col h3, .stack h3, .body h3 { margin: 8px 0; font-size: 15px; }
+.check { display: flex; gap: 8px; align-items: center; margin: 4px 0; }
+.calc, .cal { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 8px; }
+.cal { grid-template-columns: repeat(7, 1fr); }
+.tiny[aria-pressed="true"] { background: var(--amber); }
+select, .body input, .body textarea { width: 100%; margin: 4px 0; font-size: 16px; }
+.body input, select { border: 2px solid var(--line); border-radius: 8px; padding: 8px; background: #fffdf8; color: var(--ink); }
+@media (max-width: 720px) { .kanban { grid-template-columns: 1fr; } }
+
 .portrait-card { display: flex; gap: 10px; align-items: center; }
 .who { font-family: Georgia, Palatino, serif; font-size: 28px; margin: 0; }
 .log-line { padding: 4px 0; border-bottom: 1px solid #eadfcd; }

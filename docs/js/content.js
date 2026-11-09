@@ -34,10 +34,10 @@ export const AGENTS = [
   {
     id: 'nexo',
     name: 'Nexo',
-    role: 'Liga os pontos',
+    role: 'Recepção',
     motto: 'Uma coisa de cada vez, com clareza.',
     accent: '#0f6e68',
-    home: { room: 'open', x: 2, y: 3 },
+    home: { room: 'recepcao', x: 4, y: 3 },
     look: {
       skin: '#f0c3a0', hair: '#0f6e68', hairStyle: 'side', shirt: '#143646', pants: '#1b1b1b',
       glasses: 'round', robot: false,

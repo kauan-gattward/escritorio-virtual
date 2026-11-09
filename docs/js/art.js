@@ -112,6 +112,64 @@ function groundShadow(ctx, w, d) {
   ctx.fill();
 }
 
+export function drawGroundTile(ctx, x, y, kind, door = false) {
+  const colors = FLOORS[kind] || FLOORS.wood;
+  const p = tileToWorld(x, y);
+  const base = door ? '#d7a07a' : colors[(x + y) % 2];
+  diamond(ctx, p.x, p.y, TILE_W / 2, TILE_H / 2, base);
+  ctx.beginPath();
+  ctx.moveTo(p.x - TILE_W / 2, p.y);
+  ctx.lineTo(p.x, p.y + TILE_H / 2);
+  ctx.lineTo(p.x + TILE_W / 2, p.y);
+  ctx.closePath();
+  ctx.fillStyle = door ? 'rgba(120, 60, 30, 0.16)' : 'rgba(40, 28, 16, 0.07)';
+  ctx.fill();
+  if (!door && (kind === 'wood' || kind === 'warm')) {
+    ctx.beginPath();
+    ctx.moveTo(p.x - 18, p.y - 3);
+    ctx.lineTo(p.x + 14, p.y + 5);
+    ctx.strokeStyle = 'rgba(90, 58, 24, 0.16)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+  ctx.beginPath();
+  ctx.moveTo(p.x, p.y - TILE_H / 2);
+  ctx.lineTo(p.x + TILE_W / 2, p.y);
+  ctx.lineTo(p.x, p.y + TILE_H / 2);
+  ctx.lineTo(p.x - TILE_W / 2, p.y);
+  ctx.closePath();
+  ctx.strokeStyle = door ? 'rgba(122, 58, 28, 0.45)' : 'rgba(70, 52, 32, 0.14)';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+}
+
+export function drawPortal(ctx, x, y, kind) {
+  const p = tileToWorld(x, y);
+  ctx.save();
+  ctx.translate(p.x, p.y);
+  diamond(ctx, 0, 0, 26, 12, kind === 'elevator' ? '#2c3338' : '#8d6a34');
+  if (kind === 'elevator') {
+    ctx.fillStyle = '#d5dbe0';
+    ctx.fillRect(-14, -36, 12, 28);
+    ctx.fillRect(2, -36, 12, 28);
+    ctx.fillStyle = '#8fd8cc';
+    ctx.fillRect(-11, -32, 6, 18);
+    ctx.fillRect(5, -32, 6, 18);
+    ctx.fillStyle = '#e2a23b';
+    ctx.fillRect(-2, -40, 4, 4);
+  } else {
+    ctx.fillStyle = '#f4efe4';
+    ctx.fillRect(-16, -12, 32, 6);
+    ctx.fillRect(-12, -20, 28, 6);
+    ctx.fillRect(-8, -28, 24, 6);
+    ctx.fillStyle = '#7c522c';
+    ctx.fillRect(-16, -8, 32, 2);
+    ctx.fillRect(-12, -16, 28, 2);
+    ctx.fillRect(-8, -24, 24, 2);
+  }
+  ctx.restore();
+}
+
 export function drawFloor(ctx, room) {
   const colors = FLOORS[room.floor] || FLOORS.wood;
   for (let y = 0; y < room.h; y += 1) {
