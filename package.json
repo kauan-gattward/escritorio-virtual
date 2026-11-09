@@ -1,0 +1,10 @@
+{
+  "name": "escritorio-virtual",
+  "private": true,
+  "type": "module",
+  "description": "Escritório virtual isométrico, site estático.",
+  "scripts": {
+    "selftest": "node tools/selftest.js",
+    "encrypt": "node tools/encrypt.js"
+  }
+}

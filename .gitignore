@@ -1,0 +1,10 @@
+node_modules/
+.DS_Store
+.env
+.env.*
+secrets/
+*.local.json
+*.plaintext.json
+docs/data/*.plaintext.json
+*.log
+.tools-tmp/
