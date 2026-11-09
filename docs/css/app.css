@@ -430,6 +430,7 @@ textarea, #motto {
 }
 
 .row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+.mesa-log { max-height: 220px; overflow: auto; background: #fffdf8; border: 2px solid var(--line); border-radius: 10px; padding: 8px; margin: 8px 0; }
 
 #toasts { inset: auto 0 12px 0; display: grid; justify-items: center; gap: 6px; align-content: end; padding: 0 12px 8px; }
 .toast {

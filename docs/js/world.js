@@ -144,6 +144,9 @@ const andar1 = makeFloor({
 });
 
 andar1.furniture.push(piece('open-kanban', 'quadro', 5, 10, 0, 'Quadro', 'kanban'));
+for (const item of andar1.furniture) {
+  if (/^reu-c\d+$/.test(item.id)) item.tableSeat = true;
+}
 
 const andar2 = makeFloor({
   id: 'andar2',

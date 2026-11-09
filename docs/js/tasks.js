@@ -91,6 +91,8 @@ export function taskPayload(task) {
     room: task.room || '',
   };
   if (task.meetingId) body.meetingId = task.meetingId;
+  if (task.channel) body.channel = task.channel;
+  if (Array.isArray(task.history) && task.history.length) body.history = task.history;
   return body;
 }
 
@@ -127,7 +129,7 @@ async function postTask(task) {
   }
 }
 
-function makeTask(agent, text, room, meetingId) {
+function makeTask(agent, text, room, meetingId, extra = {}) {
   return {
     id: `task_${crypto.randomUUID()}`,
     agent,
@@ -135,6 +137,8 @@ function makeTask(agent, text, room, meetingId) {
     createdAt: new Date().toISOString(),
     room: room || '',
     meetingId: meetingId || null,
+    channel: extra.channel || null,
+    history: Array.isArray(extra.history) ? extra.history.slice(-10) : null,
     status: 'aguardando conexão',
     response: null,
     updatedAt: null,
@@ -163,12 +167,12 @@ async function deliver(task) {
   }
 }
 
-export async function sendTask(agent, text, room, meetingId) {
+export async function sendTask(agent, text, room, meetingId, extra = {}) {
   const name = String(agent || '').trim();
   const body = String(text || '').trim();
   if (!AGENT_MAP[name]) throw new Error('agent');
   if (!body) throw new Error('empty');
-  const task = makeTask(name, body, room, meetingId);
+  const task = makeTask(name, body, room, meetingId, extra);
   const delivery = await deliver(task);
   tasks.push(task);
   await save();

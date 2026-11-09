@@ -1,5 +1,8 @@
 import { TILE_W, TILE_H, WALL_H, tileToWorld, footprintCorners } from './iso.js';
 import { footprintSize } from './layout.js';
+import { drawPiece, hasPiece } from './pieces.js';
+
+const spriteCache = new Map();
 
 const INK = '#241c16';
 const WOOD = '#c48a4a';
@@ -547,10 +550,11 @@ function drawBoard(ctx, item) {
   ctx.stroke();
 }
 
-export function drawItem(ctx, item, time, opts = {}) {
-  const origin = tileToWorld(item.x, item.y);
-  ctx.save();
-  ctx.translate(origin.x, origin.y);
+function drawItemRaw(ctx, item, time, opts) {
+  if (hasPiece(item.type)) {
+    drawPiece(ctx, item.type, item.rot || 0, Math.floor(time * 2) % 2);
+    return;
+  }
   if (item.type === 'tapete') drawRug(ctx, item);
   else if (item.type === 'escrivaninha') drawDesk(ctx, item);
   else if (item.type === 'computador') drawComputer(ctx, item, time, opts.lift || 0);
@@ -561,6 +565,31 @@ export function drawItem(ctx, item, time, opts = {}) {
   else if (item.type === 'luminaria') drawLamp(ctx);
   else if (item.type === 'cafe') drawCoffee(ctx, time);
   else if (item.type === 'quadro') drawBoard(ctx, item);
+}
+
+export function drawItem(ctx, item, time = 0, opts = {}) {
+  const origin = tileToWorld(item.x || 0, item.y || 0);
+  const frame = Math.floor(Number(time) * 2) % 2;
+  const key = `${item.type}|${(item.rot || 0) % 4}|${frame}|${opts.lift || 0}`;
+  let sprite = spriteCache.get(key);
+  if (!sprite && typeof document !== 'undefined') {
+    const canvas = document.createElement('canvas');
+    canvas.width = 260;
+    canvas.height = 220;
+    const g = canvas.getContext('2d');
+    g.translate(130, 160);
+    drawItemRaw(g, { ...item, x: 0, y: 0 }, frame ? 1.2 : 0.15, opts);
+    sprite = { canvas, ox: -130, oy: -160 };
+    spriteCache.set(key, sprite);
+    if (spriteCache.size > 72) spriteCache.delete(spriteCache.keys().next().value);
+  }
+  if (sprite) {
+    ctx.drawImage(sprite.canvas, origin.x + sprite.ox, origin.y + sprite.oy);
+    return;
+  }
+  ctx.save();
+  ctx.translate(origin.x, origin.y);
+  drawItemRaw(ctx, { ...item, x: 0, y: 0 }, time, opts);
   ctx.restore();
 }
 

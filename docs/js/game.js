@@ -329,6 +329,7 @@ export function mount(canvas, bubblesEl, emit) {
       emit('toast', 'Não dá para chegar');
       return false;
     }
+    if (state.player.action === 'sit' && state.player.tableSeat && !extra.sit) leaveTable();
     state.player.pendingPortal = extra.portal || null;
     state.player.pendingUse = extra.use || null;
     state.player.pendingSit = extra.sit || null;
@@ -487,6 +488,8 @@ export function mount(canvas, bubblesEl, emit) {
       player.dir = sit.dir;
       player.action = 'sit';
       player.wasSit = true;
+      player.tableSeat = seatOpensMesa(sit.x, sit.y);
+      if (player.tableSeat) emit('mesa', { open: true });
       return;
     }
     if (player.action === 'walk') player.action = 'idle';
@@ -535,7 +538,57 @@ export function mount(canvas, bubblesEl, emit) {
     return options[Math.floor(Math.random() * options.length)];
   }
 
+  function seatOpensMesa(x, y) {
+    if (state.roomId !== 'reuniao' && !(areaAt(map(), x, y)?.id === 'reuniao')) return false;
+    const tables = roomItems().filter((item) => item.type === 'mesa' || item.type === 'mesa-l');
+    return tables.some((table) => tilesOf(table).some((tile) => Math.max(Math.abs(tile.x - x), Math.abs(tile.y - y)) <= 2));
+  }
+
+  function meetingChairs() {
+    return roomItems().filter((item) => CATALOG[item.type]?.sit && tilesOf(item).some((tile) => seatOpensMesa(tile.x, tile.y)));
+  }
+
+  function leaveTable() {
+    state.player.tableSeat = false;
+    emit('mesa', { open: false });
+    for (const npc of state.npcs) {
+      if (!npc.meetingSeat) continue;
+      npc.meetingSeat = null;
+      npc.path = [];
+      npc.floorId = npc.home.floorId;
+      npc.x = npc.home.x;
+      npc.y = npc.home.y;
+      npc.ai = 'sit';
+      npc.action = 'sit';
+      npc.dir = facingForRot(0);
+    }
+  }
+
   function updateNpc(npc, dt, now) {
+    if (npc.meetingSeat && npc.floorId === state.floorId) {
+      const seat = npc.meetingSeat;
+      const dist = Math.hypot(npc.x - seat.x, npc.y - seat.y);
+      if (dist < 0.15 && !npc.path.length) {
+        npc.action = 'sit';
+        npc.dir = seat.dir;
+        npc.x = seat.x;
+        npc.y = seat.y;
+        npc.bob = 0;
+        return;
+      }
+      if (!npc.path.length) {
+        const floor = FLOORS[npc.floorId];
+        const path = findPath(floor.w, floor.h, blockedFn(floor.id), Math.round(npc.x), Math.round(npc.y), seat.x, seat.y, true);
+        if (path && path.length > 1) npc.path = path.slice(1);
+        else {
+          npc.x = seat.x;
+          npc.y = seat.y;
+          npc.path = [];
+        }
+      }
+      stepAlong(npc, dt);
+      return;
+    }
     npc.timer -= dt;
     const floor = FLOORS[npc.floorId];
     const room = floor;
@@ -1164,10 +1217,11 @@ export function mount(canvas, bubblesEl, emit) {
       player.pendingUse = null;
       player.pendingSit = null;
       player.wasSit = false;
+      if (player.tableSeat) leaveTable();
       player.action = 'dance';
     },
     sit() {
-      const occ = occupancy(state.roomId);
+      const occ = occupancy();
       let best = null;
       let bestD = Infinity;
       for (const seat of occ.seats.values()) {
@@ -1258,6 +1312,7 @@ export function mount(canvas, bubblesEl, emit) {
         origin: 'catalog',
         fromRoom: null,
         label: null,
+        use: CATALOG[type]?.use || null,
       };
       state.inventory.push(item);
       saveLayout();
@@ -1300,6 +1355,38 @@ export function mount(canvas, bubblesEl, emit) {
     },
     rideStairs(floorId) {
       ride(floorId, 'stairs');
+    },
+    inviteToTable(agentId) {
+      const npc = state.npcs.find((entry) => entry.id === agentId);
+      if (!npc) return false;
+      const taken = new Set();
+      if (state.player.action === 'sit') taken.add(`${Math.round(state.player.x)},${Math.round(state.player.y)}`);
+      for (const other of state.npcs) {
+        if (other.meetingSeat) taken.add(`${other.meetingSeat.x},${other.meetingSeat.y}`);
+      }
+      const chair = meetingChairs().find((item) => tilesOf(item).some((tile) => !taken.has(`${tile.x},${tile.y}`)));
+      if (!chair) {
+        emit('toast', 'Não há cadeira livre na mesa');
+        return false;
+      }
+      const tile = tilesOf(chair).find((spot) => !taken.has(`${spot.x},${spot.y}`));
+      if (npc.floorId !== state.floorId) {
+        const spot = besidePortal(map(), map().elevator);
+        npc.floorId = state.floorId;
+        npc.x = spot.x;
+        npc.y = spot.y;
+      }
+      npc.meetingSeat = { x: tile.x, y: tile.y, dir: facingForRot(chair.rot || 0) };
+      npc.path = [];
+      npc.ai = 'meeting';
+      return true;
+    },
+    speak(agentId, text) {
+      const npc = state.npcs.find((entry) => entry.id === agentId);
+      if (!npc) return;
+      npc.messages = npc.messages || [];
+      npc.messages.push({ id: crypto.randomUUID(), text: String(text || '').slice(0, 180), born: performance.now() });
+      if (npc.messages.length > 4) npc.messages.shift();
     },
     roomId() {
       return state.roomId;
