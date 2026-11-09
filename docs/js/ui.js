@@ -1,10 +1,10 @@
-import { AGENT_MAP, CATALOG, CATALOG_ORDER, DEFAULT_LOOK } from './content.js';
+import { AGENT_MAP, CATALOG, CATALOG_GROUPS, DEFAULT_LOOK } from './content.js';
 import { FLOOR_LIST } from './world.js';
 import {
   renderArchive, renderBoard, renderCalendar, renderCalc, renderElevator, renderFinances,
   renderGoals, renderKanban, renderLinks, renderMeeting, renderMood, renderMusic, renderNotices,
   renderNotes, renderPomodoro, renderProjects, renderQuickTask, renderReception, renderSearch,
-  renderSettings, renderTodos, toolMenu,
+  renderSettings, renderTodos, renderMesa, renderTv, ensureMesaSession, absorbMesaReplies, toolMenu,
 } from './features.js';
 import { paintAvatarPreview, paintPreview } from './art.js';
 import { mount } from './game.js';
@@ -149,26 +149,57 @@ function renderRooms(body) {
 
 function renderCatalog(body) {
   body.replaceChildren();
+  const search = document.createElement('input');
+  search.placeholder = 'Buscar móvel…';
+  search.maxLength = 40;
+  const tabs = document.createElement('div');
+  tabs.className = 'row';
+  let cat = 'moveis';
   const grid = document.createElement('div');
   grid.className = 'catalog-grid';
-  for (const type of CATALOG_ORDER) {
-    const card = document.createElement('div');
-    card.className = 'catalog-card';
-    const canvas = document.createElement('canvas');
-    canvas.width = 160;
-    canvas.height = 120;
-    paintPreview(canvas, type);
-    const name = document.createElement('strong');
-    name.textContent = CATALOG[type].name;
+  const paint = () => {
+    grid.replaceChildren();
+    const q = search.value.trim().toLowerCase();
+    const types = Object.keys(CATALOG).filter((type) => {
+      const def = CATALOG[type];
+      if (!q && def.cat !== cat) return false;
+      if (q && !def.name.toLowerCase().includes(q)) return false;
+      return true;
+    });
+    for (const type of types) {
+      const card = document.createElement('div');
+      card.className = 'catalog-card';
+      const canvas = document.createElement('canvas');
+      canvas.width = 160;
+      canvas.height = 120;
+      paintPreview(canvas, type);
+      const name = document.createElement('strong');
+      name.textContent = CATALOG[type].name;
+      const button = document.createElement('button');
+      button.className = 'tiny';
+      button.type = 'button';
+      button.textContent = 'Pôr na mochila';
+      button.addEventListener('click', () => game.addCatalog(type));
+      card.append(canvas, name, button);
+      grid.appendChild(card);
+    }
+    if (!types.length) grid.append(document.createTextNode('Nada com esse nome.'));
+  };
+  for (const group of CATALOG_GROUPS) {
     const button = document.createElement('button');
     button.className = 'tiny';
     button.type = 'button';
-    button.textContent = 'Pôr na mochila';
-    button.addEventListener('click', () => game.addCatalog(type));
-    card.append(canvas, name, button);
-    grid.appendChild(card);
+    button.textContent = group.name;
+    button.addEventListener('click', () => {
+      cat = group.id;
+      search.value = '';
+      paint();
+    });
+    tabs.appendChild(button);
   }
-  body.appendChild(grid);
+  search.addEventListener('input', paint);
+  body.append(search, tabs, grid);
+  paint();
 }
 
 function renderBag(body) {
@@ -494,6 +525,7 @@ const FEATURES = {
   search: ['Busca', renderSearch],
   quick: ['Pedido rápido', renderQuickTask],
   settings: ['Conexão dos agentes', renderSettings],
+  tv: ['Na tela', renderTv],
 };
 
 function openFeature(id) {
@@ -550,6 +582,16 @@ export function startApp({ firstRun, connected }) {
     if (event === 'inventory' && windows.get('bag')) renderBag(windows.get('bag').querySelector('.body'));
     if (event === 'scene') updateChrome();
     if (event === 'interact') openFeature(payload.id);
+    if (event === 'mesa') {
+      if (payload.open) {
+        ensureMesaSession().then(() => {
+          openWindow('mesa', 'Mesa de reunião', (body) => renderMesa(body, {
+            toast,
+            invite: (id) => game.inviteToTable(id),
+          }));
+        });
+      } else closeWindow('mesa');
+    }
     if (event === 'portal' && payload.kind === 'elevator') {
       openWindow('lift', 'Elevador', (body) => renderElevator(body, {
         floors: FLOOR_LIST,
@@ -630,6 +672,11 @@ export function startApp({ firstRun, connected }) {
   });
 
   subscribe(() => {
+    absorbMesaReplies((id, text) => game.speak(id, text)).then((changed) => {
+      if (!changed) return;
+      const mesa = windows.get('mesa');
+      if (mesa) renderMesa(mesa.querySelector('.body'), { toast, invite: (id) => game.inviteToTable(id) });
+    });
     if (document.activeElement && document.activeElement.tagName === 'TEXTAREA') return;
     if (openAgent && windows.get('agent')) {
       const body = windows.get('agent').querySelector('.body');

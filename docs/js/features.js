@@ -1,5 +1,5 @@
 import { AGENTS } from './content.js';
-import { listTasks, presence, sendMeeting, sendTask, takeCorsWarning } from './tasks.js';
+import { hasWebhook, listTasks, presence, sendMeeting, sendTask, takeCorsWarning } from './tasks.js';
 import { getVault, patchVault, uid } from './vault.js';
 import { setMusic } from './music.js';
 
@@ -103,7 +103,7 @@ export function renderKanban(body) {
   for (const [title, match] of columns) {
     const col = el('section', { class: 'kanban-col' });
     col.append(el('h3', { text: title }));
-    const items = listTasks().filter(match).slice(-12).reverse();
+    const items = listTasks().filter((task) => task.channel !== 'mesa-reuniao').filter(match).slice(-12).reverse();
     if (!items.length) col.append(el('p', { class: 'muted', text: 'Vazio' }));
     for (const task of items) {
       col.append(el('article', { class: 'task' }, [
@@ -519,6 +519,110 @@ export function renderElevator(body, { floors, current, ride }) {
     if (floor.id === current) button.setAttribute('aria-pressed', 'true');
     button.addEventListener('click', () => ride(floor.id));
     body.append(button);
+  }
+}
+
+export async function ensureMesaSession() {
+  const chat = getVault().mesaChat || { meetingId: '', invited: [], messages: [] };
+  if (!chat.meetingId) {
+    await patchVault({
+      mesaChat: { meetingId: `meet_${crypto.randomUUID()}`, invited: chat.invited || [], messages: chat.messages || [] },
+    });
+  }
+  return getVault().mesaChat;
+}
+
+export async function absorbMesaReplies(speak) {
+  const chat = getVault().mesaChat;
+  if (!chat?.meetingId) return false;
+  const known = new Set((chat.messages || []).map((message) => message.id));
+  const fresh = [];
+  for (const task of listTasks()) {
+    if (task.channel !== 'mesa-reuniao' || task.meetingId !== chat.meetingId) continue;
+    if (!task.response) continue;
+    const id = `${task.id}:resposta`;
+    if (known.has(id)) continue;
+    fresh.push({ id, from: task.agent, text: task.response, at: task.updatedAt || new Date().toISOString() });
+    if (speak) speak(task.agent, task.response);
+  }
+  if (!fresh.length) return false;
+  const messages = chat.messages.concat(fresh).slice(-80);
+  await patchVault({ mesaChat: { ...chat, messages } });
+  return true;
+}
+
+export function renderMesa(body, { toast, invite }) {
+  body.replaceChildren();
+  const chat = getVault().mesaChat || { meetingId: '', invited: [], messages: [] };
+  if (!hasWebhook()) {
+    body.append(el('p', { class: 'status bad', text: 'Sem webhook. As mensagens ficam só neste aparelho até você configurar a conexão.' }));
+  }
+  body.append(el('p', { class: 'muted', text: 'Chat privado desta mesa. Fecha quando você levanta.' }));
+  const guests = el('div', { class: 'stack' });
+  const invited = new Set(chat.invited || []);
+  for (const agent of AGENTS) {
+    const row = el('label', { class: 'check' });
+    const box = el('input', { type: 'checkbox' });
+    box.checked = invited.has(agent.id);
+    box.addEventListener('change', async () => {
+      const current = new Set(getVault().mesaChat.invited || []);
+      if (box.checked) {
+        current.add(agent.id);
+        invite(agent.id);
+      } else current.delete(agent.id);
+      await patchVault({ mesaChat: { ...getVault().mesaChat, invited: [...current] } });
+      toast(box.checked ? `${agent.name} foi chamado à mesa` : `${agent.name} saiu do convite`);
+    });
+    row.append(box, document.createTextNode(` ${agent.name}`));
+    guests.append(row);
+  }
+  const log = el('div', { class: 'mesa-log' });
+  const messages = chat.messages || [];
+  if (!messages.length) log.append(el('p', { class: 'muted', text: 'A mesa está em silêncio.' }));
+  for (const message of messages.slice(-30)) {
+    const line = el('p', { class: 'log-line' });
+    const who = el('b', { text: `${message.from === 'kauan' ? 'Kauan' : (AGENTS.find((agent) => agent.id === message.from)?.name || message.from)}: ` });
+    line.append(who, document.createTextNode(message.text));
+    log.append(line);
+  }
+  const input = el('textarea', { rows: '2', maxlength: '500', placeholder: 'Falar na mesa…' });
+  const send = el('button', { class: 'primary', type: 'button', text: 'Enviar' });
+  send.addEventListener('click', async () => {
+    const text = input.value.trim();
+    if (!text) return;
+    const current = getVault().mesaChat;
+    const history = (current.messages || []).slice(-10).map((message) => ({
+      from: message.from,
+      text: String(message.text || '').slice(0, 180),
+    }));
+    const entry = { id: uid('msg'), from: 'kauan', text, at: new Date().toISOString() };
+    await patchVault({ mesaChat: { ...current, messages: current.messages.concat(entry).slice(-80) } });
+    const targets = getVault().mesaChat.invited || [];
+    if (!targets.length) toast('Convide alguém da mesa para enviar.');
+    for (const agent of targets) {
+      const { delivery } = await sendTask(agent, text, 'reuniao', current.meetingId, {
+        channel: 'mesa-reuniao',
+        history,
+      });
+      const note = takeCorsWarning(delivery);
+      if (note) toast(note);
+    }
+    if (!hasWebhook() && targets.length) toast('Sem webhook: nada foi enviado.');
+    renderMesa(body, { toast, invite });
+  });
+  body.append(el('h3', { text: 'Na mesa' }), guests, log, input, send);
+}
+
+export function renderTv(body) {
+  body.replaceChildren();
+  body.append(el('h3', { text: 'Na tela' }));
+  const rows = listTasks().filter((task) => task.response).slice(-8).reverse();
+  if (!rows.length) body.append(el('p', { class: 'muted', text: 'Nenhuma resposta para mostrar.' }));
+  for (const task of rows) {
+    body.append(el('article', { class: 'task' }, [
+      el('strong', { text: task.agent }),
+      el('p', { text: task.response }),
+    ]));
   }
 }
 

@@ -29,6 +29,7 @@ export function blankVault() {
     music: false,
     calendar: [],
     pomodoro: { running: false, mode: 'foco', endsAt: 0 },
+    mesaChat: { meetingId: '', invited: [], messages: [] },
   };
 }
 

@@ -38,7 +38,8 @@ Nas janelas da fachada, bonequinhos minúsculos repetem a posição de quem est�
 - Toque num piso para andar (A* em 8 direções).
 - A câmera segue. Arrastar olha em volta; ao andar de novo, ela volta a seguir. Pinça ou a roda aproximam.
 - Chegue perto de um móvel com função e toque nele: a ficha abre.
-- Acenar, sentar, dançar, catálogo, mochila, mover, girar e pegar continuam iguais.
+- Acenar, sentar, dançar, catálogo (por categoria, com busca), mochila, mover, girar e pegar continuam. O catálogo tem móveis, eletrônicos, decoração, plantas e cozinha. Os desenhos ficam em cache para não pesar.
+- Sentar numa cadeira da mesa de reunião abre o chat privado da mesa. Levantar fecha. Dá para chamar um agente: ele atravessa a sala e senta.
 - **Ferramentas**: notas, lista, pomodoro, calculadora, calendário, busca e pedido rápido.
 - **Ajustes**: conexão dos agentes.
 
@@ -81,7 +82,19 @@ Content-Type: application/json
 
 O nome do cabeçalho é configurável. Se for `Authorization`, o valor ganha o prefixo `Bearer `, a menos que a chave já comece com `Bearer `. Se o nome for outro, a chave vai crua nesse cabeçalho.
 
-Uma reunião manda um POST por agente, com o mesmo texto e um campo extra:
+O chat privado da mesa (quando você senta numa cadeira ao lado da mesa de reunião) manda um POST por agente convidado, com os mesmos campos e mais dois:
+
+```json
+"channel": "mesa-reuniao",
+"history": [
+  { "from": "kauan", "text": "mensagem anterior" },
+  { "from": "tati", "text": "resposta anterior" }
+]
+```
+
+`history` traz até 10 falas anteriores, só como contexto. A fala nova vai em `text`. A resposta volta no `results.enc.json` com o mesmo `meetingId` e aparece no chat da mesa e num balão sobre o agente. O histórico fica cifrado no cofre do navegador. Sem webhook, a janela avisa que nada sai do aparelho.
+
+Uma reunião pelo botão da mesa manda um POST por agente, com o mesmo texto e um campo extra:
 
 ```json
 "meetingId": "meet_8c2a1d40-1b2e-4f6a-9d11-0aa1bb22cc33"
@@ -98,7 +111,7 @@ O app busca, a cada 60 segundos e ao voltar o foco:
 1. `./data/results.enc.json?t=<agora>`
 2. se não achar, `https://raw.githubusercontent.com/kauan-gattward/escritorio-virtual/main/docs/data/results.enc.json?t=<agora>`
 
-Arquivo ausente não é erro. Não há `results.enc.json` neste repositório: a senha ainda não está definida para cifrar um arquivo vazio.
+Arquivo ausente não é erro. Se `docs/data/results.enc.json` estiver no site, a senha da tela tem de ser a mesma usada no `encrypt.js`.
 
 O JSON decifrado é:
 
