@@ -1,0 +1,12 @@
+{
+  "name": "O Escritório",
+  "short_name": "Escritório",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#14110e",
+  "theme_color": "#1e5c55",
+  "lang": "pt-BR",
+  "icons": [
+    { "src": "./favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}
